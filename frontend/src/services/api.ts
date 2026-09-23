@@ -63,16 +63,28 @@ export const feedingRecordApi = {
 };
 
 export const waterQualityRecordApi = {
-  getAll: (batchId?: number) => 
-    api.get<WaterQualityRecord[]>('/water-quality-records/', { 
-      params: batchId ? { batch_id: batchId } : {} 
+  getAll: (params?: { batchId?: number; status?: string; includeMerged?: boolean }) =>
+    api.get<WaterQualityRecord[]>('/water-quality-records/', {
+      params: {
+        batch_id: params?.batchId,
+        status: params?.status,
+        include_merged: params?.includeMerged,
+      },
     }),
   getById: (id: number) => api.get<WaterQualityRecord>(`/water-quality-records/${id}/`),
-  create: (data: Omit<WaterQualityRecord, 'id' | 'created_at'>) => 
+  create: (data: unknown) =>
     api.post<WaterQualityRecord>('/water-quality-records/', data),
-  update: (id: number, data: Partial<WaterQualityRecord>) => 
+  update: (id: number, data: unknown) =>
     api.put<WaterQualityRecord>(`/water-quality-records/${id}/`, data),
+  review: (id: number, data: {
+    review_status: 'confirmed' | 'corrected' | 'dismissed';
+    review_note?: string;
+    reviewed_by?: string;
+    corrections?: Record<string, number | null>;
+  }) => api.post<WaterQualityRecord>(`/water-quality-records/${id}/review/`, data),
   delete: (id: number) => api.delete(`/water-quality-records/${id}/`),
+  exportUrl: (batchId?: number) =>
+    `/api/water-quality-records/export/${batchId ? `?batch_id=${batchId}` : ''}`,
 };
 
 export const medicationRecordApi = {

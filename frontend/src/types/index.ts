@@ -48,19 +48,53 @@ export interface FeedingRecord {
   created_at: string;
 }
 
+export interface WaterQualityCorrection {
+  id: number;
+  record_id: number;
+  field_name: string;
+  old_value?: string | null;
+  new_value?: string | null;
+  reason: string;
+  operator?: string | null;
+  note?: string | null;
+  created_at: string;
+}
+
+export type WaterQualityStatus = 'valid' | 'quarantined' | 'rejected';
+export type WaterQualityReviewStatus = 'confirmed' | 'corrected' | 'dismissed';
+
 export interface WaterQualityRecord {
   id: number;
   batch_id: number;
   record_date: string;
-  record_time?: string;
-  water_temperature?: number;
-  ph_value?: number;
-  dissolved_oxygen?: number;
-  ammonia_nitrogen?: number;
-  nitrite?: number;
-  transparency?: number;
-  notes?: string;
+  record_time?: string | null;
+  sample_time?: string;
+  water_temperature?: number | null;
+  ph_value?: number | null;
+  dissolved_oxygen?: number | null;
+  ammonia_nitrogen?: number | null;
+  nitrite?: number | null;
+  transparency?: number | null;
+  notes?: string | null;
+  device_id: string;
+  source: 'manual' | 'sensor';
+  status: WaterQualityStatus;
+  quarantined_fields: string[];
+  original_payload?: Record<string, string | number | null> | null;
+  review_status?: WaterQualityReviewStatus | null;
+  review_note?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  merged_into_id?: number | null;
+  client_ref?: string | null;
   created_at: string;
+  updated_at?: string | null;
+  corrections: WaterQualityCorrection[];
+}
+
+export interface WaterQualityFieldError {
+  field: string;
+  message: string;
 }
 
 export interface MedicationRecord {

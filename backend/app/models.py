@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import json
 from .database import Base
 
 class Pond(Base):
@@ -77,7 +78,9 @@ class WaterQualityRecord(Base):
     id = Column(Integer, primary_key=True, index=True)
     batch_id = Column(Integer, ForeignKey("batches.id"), nullable=False)
     record_date = Column(Date, nullable=False, comment="检测日期")
-    record_time = Column(String(20), comment="检测时间")
+    record_time = Column(String(20), comment="检测时间(HH:MM)")
+    # 归一化的采样时刻（HH:MM，空按 00:00），仅用于幂等键与排序
+    sample_time = Column(String(5), nullable=False, default="00:00", comment="采样时刻(幂等键)")
     water_temperature = Column(Float, comment="水温(℃)")
     ph_value = Column(Float, comment="pH值")
     dissolved_oxygen = Column(Float, comment="溶解氧(mg/L)")
@@ -85,9 +88,65 @@ class WaterQualityRecord(Base):
     nitrite = Column(Float, comment="亚硝酸盐(mg/L)")
     transparency = Column(Float, comment="透明度(cm)")
     notes = Column(Text, comment="备注")
+
+    # ---- 数据来源与质量状态 ----
+    device_id = Column(String(64), nullable=False, default="manual", comment="采集设备标识，手工录入为 manual")
+    source = Column(String(20), nullable=False, default="manual", comment="来源: manual 手工, sensor 设备")
+    # valid 全部字段有效；quarantined 含被隔离字段（待复核）；
+    # rejected 整单时间/批次不合法被拒收但仍留痕
+    status = Column(String(20), nullable=False, default="valid", index=True,
+                    comment="质量状态: valid, quarantined, rejected")
+    quarantined_fields = Column(Text, default="[]", comment="被隔离字段名(JSON数组)")
+    original_payload = Column(Text, comment="首次上报的原始报文(JSON)，异常值留痕不删除")
+    # ---- 复核结论 ----
+    review_status = Column(String(20), nullable=True, comment="复核结论: confirmed 异常属实, corrected 已更正, dismissed 录入误报")
+    review_note = Column(Text, comment="复核说明")
+    reviewed_by = Column(String(100), comment="复核人")
+    reviewed_at = Column(DateTime, comment="复核时间")
+    # 归并追踪：被哪条记录幂等归并 / 归并自哪个设备上报标识
+    merged_into_id = Column(Integer, ForeignKey("water_quality_records.id"), nullable=True)
+    client_ref = Column(String(100), nullable=True, index=True, comment="设备/客户端上报唯一标识，用于幂等")
+
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     batch = relationship("Batch", back_populates="water_quality_records")
+    corrections = relationship(
+        "WaterQualityCorrection", back_populates="record",
+        cascade="all, delete-orphan", order_by="WaterQualityCorrection.created_at"
+    )
+
+    @property
+    def quarantined_fields_list(self):
+        try:
+            return json.loads(self.quarantined_fields or "[]")
+        except (ValueError, TypeError):
+            return []
+
+    @quarantined_fields_list.setter
+    def quarantined_fields_list(self, value):
+        self.quarantined_fields = json.dumps(list(value or []), ensure_ascii=False)
+
+
+class WaterQualityCorrection(Base):
+    """水质记录更正 / 复核留痕。
+
+    人工更正不覆盖传感器原值：每次改动追加一行，原值与新值都可回看。
+    """
+    __tablename__ = "water_quality_corrections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    record_id = Column(Integer, ForeignKey("water_quality_records.id"), nullable=False, index=True)
+    field_name = Column(String(50), nullable=False, comment="被更正字段，record_date 表示整单时间更正")
+    old_value = Column(Text, comment="更正前原始值（异常录入原样保留）")
+    new_value = Column(Text, comment="更正后的值")
+    reason = Column(String(20), nullable=False, default="corrected",
+                    comment="类型: corrected 人工更正, confirmed 确认异常, dismissed 判定误报")
+    operator = Column(String(100), comment="操作人")
+    note = Column(Text, comment="复核/更正说明")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    record = relationship("WaterQualityRecord", back_populates="corrections")
 
 class MedicationRecord(Base):
     __tablename__ = "medication_records"

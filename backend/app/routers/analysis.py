@@ -12,6 +12,20 @@ router = APIRouter(
     tags=["养殖周期分析"]
 )
 
+
+def _valid_water_quality_query(db: Session, batch_id: int):
+    """水质有效数据集的唯一入口。
+
+    趋势图、追溯接口、CSV 导出都必须经此过滤：
+    status='valid' 且未被幂等归并。被隔离的异常字段 / 记录
+    一律不进入分析展示，避免异常值把趋势拉平。
+    """
+    return db.query(WaterQualityRecord).filter(
+        WaterQualityRecord.batch_id == batch_id,
+        WaterQualityRecord.status == "valid",
+        WaterQualityRecord.merged_into_id.is_(None),
+    ).order_by(WaterQualityRecord.record_date, WaterQualityRecord.sample_time)
+
 @router.get("/cycle/{batch_id}/", response_model=CultureCycleAnalysis)
 def analyze_cycle(batch_id: int, db: Session = Depends(get_db)):
     batch = db.query(Batch).filter(Batch.id == batch_id).first()
@@ -142,9 +156,7 @@ def batch_traceability(batch_id: int, db: Session = Depends(get_db)):
         FeedingRecord.batch_id == batch.id
     ).all()
     
-    water_quality_records = db.query(WaterQualityRecord).filter(
-        WaterQualityRecord.batch_id == batch.id
-    ).all()
+    water_quality_records = _valid_water_quality_query(db, batch.id).all()
     
     medication_records = db.query(MedicationRecord).filter(
         MedicationRecord.batch_id == batch.id

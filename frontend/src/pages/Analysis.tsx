@@ -243,9 +243,9 @@ const Analysis: React.FC = () => {
                         {searchResult.water_quality_records.map((record, idx) => (
                           <tr key={idx}>
                             <td>{record.record_date}</td>
-                            <td>{record.water_temperature}°C</td>
-                            <td>{record.ph_value}</td>
-                            <td>{record.dissolved_oxygen} mg/L</td>
+                            <td>{record.water_temperature === null || record.water_temperature === undefined ? <span className="text-gray-300">缺测</span> : `${record.water_temperature}°C`}</td>
+                            <td>{record.ph_value === null || record.ph_value === undefined ? <span className="text-gray-300">缺测</span> : record.ph_value}</td>
+                            <td>{record.dissolved_oxygen === null || record.dissolved_oxygen === undefined ? <span className="text-gray-300">缺测</span> : `${record.dissolved_oxygen} mg/L`}</td>
                           </tr>
                         ))}
                       </tbody>
