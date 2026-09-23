@@ -2,8 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
 from .routers import ponds, batches, stocking, feeding, water_quality, medication, costs, harvest, analysis
+from .migrations import run_migrations
 
 Base.metadata.create_all(bind=engine)
+run_migrations()
 
 app = FastAPI(
     title="水产养殖管理系统",

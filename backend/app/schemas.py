@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
 from datetime import date, datetime
 
 class PondBase(BaseModel):
@@ -25,7 +25,7 @@ class PondResponse(PondBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class BatchBase(BaseModel):
     batch_number: str
@@ -54,7 +54,7 @@ class BatchResponse(BatchBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class StockingRecordBase(BaseModel):
     batch_id: int
@@ -84,7 +84,7 @@ class StockingRecordResponse(StockingRecordBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class FeedingRecordBase(BaseModel):
     batch_id: int
@@ -114,18 +114,21 @@ class FeedingRecordResponse(FeedingRecordBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class WaterQualityRecordBase(BaseModel):
     batch_id: int
     record_date: date
     record_time: Optional[str] = None
-    water_temperature: Optional[float] = None
-    ph_value: Optional[float] = None
-    dissolved_oxygen: Optional[float] = None
-    ammonia_nitrogen: Optional[float] = None
-    nitrite: Optional[float] = None
-    transparency: Optional[float] = None
+    device_id: Optional[str] = Field(default="manual", description="采集设备编号，人工录入填 manual")
+    # allow_inf_nan 保留默认放行，让无穷大/NaN 能进入业务校验并返回字段级错误，
+    # 而不是被框架当成笼统的 422
+    water_temperature: Optional[float] = Field(default=None)
+    ph_value: Optional[float] = Field(default=None)
+    dissolved_oxygen: Optional[float] = Field(default=None)
+    ammonia_nitrogen: Optional[float] = Field(default=None)
+    nitrite: Optional[float] = Field(default=None)
+    transparency: Optional[float] = Field(default=None)
     notes: Optional[str] = None
 
 class WaterQualityRecordCreate(WaterQualityRecordBase):
@@ -135,6 +138,7 @@ class WaterQualityRecordUpdate(BaseModel):
     batch_id: Optional[int] = None
     record_date: Optional[date] = None
     record_time: Optional[str] = None
+    device_id: Optional[str] = None
     water_temperature: Optional[float] = None
     ph_value: Optional[float] = None
     dissolved_oxygen: Optional[float] = None
@@ -143,12 +147,61 @@ class WaterQualityRecordUpdate(BaseModel):
     transparency: Optional[float] = None
     notes: Optional[str] = None
 
-class WaterQualityRecordResponse(WaterQualityRecordBase):
+class WaterQualityRevisionResponse(BaseModel):
     id: int
+    action: str
+    changed_by: Optional[str] = None
+    field_changes: Optional[dict] = None
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class WaterQualityRecordResponse(WaterQualityRecordBase):
+    id: int
+    sampled_at: Optional[datetime] = None
+    status: str = "valid"
+    invalid_field_reasons: Optional[dict] = None
+    review_conclusion: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    merged_into_id: Optional[int] = None
+    revisions: List[WaterQualityRevisionResponse] = []
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class WaterQualityRecordCreateResponse(WaterQualityRecordResponse):
+    merged_from_duplicate: bool = False
+
+class WaterQualityReviewRequest(BaseModel):
+    action: Literal["confirm_valid", "confirm_invalid"]
+    conclusion: str = Field(min_length=1, max_length=500)
+    reviewed_by: Optional[str] = Field(default="reviewer", max_length=100)
+    # 复核确认有效时可同时给出人工更正值；键必须是六项指标之一
+    corrections: Optional[dict] = None
+
+class WaterQualityTrendPoint(BaseModel):
+    record_id: int
+    sampled_at: datetime
+    record_date: date
+    record_time: Optional[str] = None
+    device_id: Optional[str] = None
+    water_temperature: Optional[float] = None
+    ph_value: Optional[float] = None
+    dissolved_oxygen: Optional[float] = None
+    ammonia_nitrogen: Optional[float] = None
+    nitrite: Optional[float] = None
+    transparency: Optional[float] = None
+
+class WaterQualityTrendResponse(BaseModel):
+    batch_id: Optional[int] = None
+    points: List[WaterQualityTrendPoint]
+    quarantined_count: int = 0
+    rejected_count: int = 0
+    merged_count: int = 0
 
 class MedicationRecordBase(BaseModel):
     batch_id: int
@@ -184,7 +237,7 @@ class MedicationRecordResponse(MedicationRecordBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CostRecordBase(BaseModel):
     batch_id: int
@@ -216,7 +269,7 @@ class CostRecordResponse(CostRecordBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class HarvestSaleBase(BaseModel):
     batch_id: int
@@ -248,7 +301,7 @@ class HarvestSaleResponse(HarvestSaleBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CostSummaryItem(BaseModel):
     type: str

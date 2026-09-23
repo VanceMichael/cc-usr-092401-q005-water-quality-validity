@@ -6,6 +6,7 @@ from datetime import date
 from ..database import get_db
 from ..models import Batch, Pond, StockingRecord, FeedingRecord, CostRecord, HarvestSale, WaterQualityRecord, MedicationRecord
 from ..schemas import CultureCycleAnalysis, BatchTraceability, BatchInfo, PondInfo
+from ..water_quality_service import get_valid_records
 
 router = APIRouter(
     prefix="/api/analysis",
@@ -142,9 +143,8 @@ def batch_traceability(batch_id: int, db: Session = Depends(get_db)):
         FeedingRecord.batch_id == batch.id
     ).all()
     
-    water_quality_records = db.query(WaterQualityRecord).filter(
-        WaterQualityRecord.batch_id == batch.id
-    ).all()
+    # 与水质列表/趋势图/导出共用同一有效数据集：隔离、作废、归并记录不进入追溯
+    water_quality_records = get_valid_records(db, batch.id)
     
     medication_records = db.query(MedicationRecord).filter(
         MedicationRecord.batch_id == batch.id

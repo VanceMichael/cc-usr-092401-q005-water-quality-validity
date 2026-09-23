@@ -2,7 +2,8 @@ import axios from 'axios';
 import type {
   Pond, Batch, StockingRecord, FeedingRecord, WaterQualityRecord,
   MedicationRecord, CostRecord, HarvestSale, CultureCycleAnalysis,
-  CostSummary, FeedingSummary, BatchTraceability
+  CostSummary, FeedingSummary, BatchTraceability, WaterQualityTrend,
+  WaterQualityReviewPayload
 } from '../types';
 
 const API_BASE_URL = '/api';
@@ -63,16 +64,26 @@ export const feedingRecordApi = {
 };
 
 export const waterQualityRecordApi = {
-  getAll: (batchId?: number) => 
-    api.get<WaterQualityRecord[]>('/water-quality-records/', { 
-      params: batchId ? { batch_id: batchId } : {} 
+  getAll: (batchId?: number, status: 'valid' | 'quarantined' | 'rejected' | 'all' = 'valid') =>
+    api.get<WaterQualityRecord[]>('/water-quality-records/', {
+      params: { batch_id: batchId, status }
     }),
   getById: (id: number) => api.get<WaterQualityRecord>(`/water-quality-records/${id}/`),
-  create: (data: Omit<WaterQualityRecord, 'id' | 'created_at'>) => 
-    api.post<WaterQualityRecord>('/water-quality-records/', data),
-  update: (id: number, data: Partial<WaterQualityRecord>) => 
+  create: (data: unknown, acceptQuarantine = false) =>
+    api.post<WaterQualityRecord>('/water-quality-records/', data, {
+      params: acceptQuarantine ? { accept_quarantine: true } : {}
+    }),
+  update: (id: number, data: unknown) =>
     api.put<WaterQualityRecord>(`/water-quality-records/${id}/`, data),
   delete: (id: number) => api.delete(`/water-quality-records/${id}/`),
+  review: (id: number, payload: WaterQualityReviewPayload) =>
+    api.post<WaterQualityRecord>(`/water-quality-records/${id}/review`, payload),
+  trend: (batchId?: number) =>
+    api.get<WaterQualityTrend>('/water-quality-records/trend/', {
+      params: { batch_id: batchId }
+    }),
+  exportUrl: (batchId?: number) =>
+    `${API_BASE_URL}/water-quality-records/trend/export.csv${batchId ? `?batch_id=${batchId}` : ''}`,
 };
 
 export const medicationRecordApi = {

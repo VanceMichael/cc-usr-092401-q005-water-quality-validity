@@ -4,6 +4,14 @@ import { analysisApi, batchApi, pondApi } from '../services/api';
 import type { CultureCycleAnalysis, Batch, Pond, BatchTraceability } from '../types';
 
 const Analysis: React.FC = () => {
+  /** 追溯使用的是有效数据集：缺测显示「缺测」，零值显示为 0。 */
+  const renderMetric = (value: number | null | undefined, unit = ''): React.ReactNode => {
+    if (value === null || value === undefined) {
+      return <span className="text-gray-400">缺测</span>;
+    }
+    return <>{value}{unit}</>;
+  };
+
   const [batches, setBatches] = useState<Batch[]>([]);
   const [ponds, setPonds] = useState<Pond[]>([]);
   const [loading, setLoading] = useState(true);
@@ -243,9 +251,9 @@ const Analysis: React.FC = () => {
                         {searchResult.water_quality_records.map((record, idx) => (
                           <tr key={idx}>
                             <td>{record.record_date}</td>
-                            <td>{record.water_temperature}°C</td>
-                            <td>{record.ph_value}</td>
-                            <td>{record.dissolved_oxygen} mg/L</td>
+                            <td>{renderMetric(record.water_temperature, '°C')}</td>
+                            <td>{renderMetric(record.ph_value)}</td>
+                            <td>{renderMetric(record.dissolved_oxygen, ' mg/L')}</td>
                           </tr>
                         ))}
                       </tbody>

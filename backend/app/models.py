@@ -78,16 +78,50 @@ class WaterQualityRecord(Base):
     batch_id = Column(Integer, ForeignKey("batches.id"), nullable=False)
     record_date = Column(Date, nullable=False, comment="检测日期")
     record_time = Column(String(20), comment="检测时间")
+    sampled_at = Column(DateTime, index=True, comment="采样时刻(日期+时间合并)")
+    device_id = Column(String(50), index=True, comment="采集设备编号，人工录入为 manual")
     water_temperature = Column(Float, comment="水温(℃)")
     ph_value = Column(Float, comment="pH值")
     dissolved_oxygen = Column(Float, comment="溶解氧(mg/L)")
     ammonia_nitrogen = Column(Float, comment="氨氮(mg/L)")
     nitrite = Column(Float, comment="亚硝酸盐(mg/L)")
     transparency = Column(Float, comment="透明度(cm)")
+    # 有效状态：valid 可用于趋势/分析；quarantined 为隔离的异常值，等待复核；
+    # rejected 为复核后确认作废。异常记录只隔离、不删除。
+    status = Column(String(20), default="valid", nullable=False, index=True,
+                    comment="状态: valid, quarantined, rejected")
+    invalid_fields = Column(Text, comment="隔离原因(字段->原因的JSON)")
+    review_conclusion = Column(Text, comment="复核结论")
+    reviewed_by = Column(String(100), comment="复核人")
+    reviewed_at = Column(DateTime, comment="复核时间")
+    merged_into_id = Column(Integer, ForeignKey("water_quality_records.id"),
+                            comment="幂等归并后并入的主记录")
     notes = Column(Text, comment="备注")
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     batch = relationship("Batch", back_populates="water_quality_records")
+    revisions = relationship(
+        "WaterQualityRevision",
+        back_populates="record",
+        cascade="all, delete-orphan",
+        order_by="WaterQualityRevision.id",
+    )
+
+class WaterQualityRevision(Base):
+    """水质记录修订留痕：传感器原值与每次人工更正都可回看。"""
+    __tablename__ = "water_quality_revisions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    record_id = Column(Integer, ForeignKey("water_quality_records.id"), nullable=False, index=True)
+    action = Column(String(20), nullable=False,
+                    comment="变更类型: create(传感器/录入原值), update(人工更正), merge(重复归并)")
+    changed_by = Column(String(100), default="manual", comment="变更来源: 设备号或操作人")
+    field_changes = Column(Text, comment="本次变更内容(字段->旧值/新值的JSON)")
+    snapshot = Column(Text, comment="变更后整记录快照(JSON)")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    record = relationship("WaterQualityRecord", back_populates="revisions")
 
 class MedicationRecord(Base):
     __tablename__ = "medication_records"

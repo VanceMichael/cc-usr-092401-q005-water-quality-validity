@@ -48,19 +48,81 @@ export interface FeedingRecord {
   created_at: string;
 }
 
+export type WaterQualityStatus = 'valid' | 'quarantined' | 'rejected';
+
+export interface WaterQualityRevision {
+  id: number;
+  action: string;
+  changed_by?: string;
+  field_changes?: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface WaterQualityRecord {
   id: number;
   batch_id: number;
   record_date: string;
   record_time?: string;
-  water_temperature?: number;
-  ph_value?: number;
-  dissolved_oxygen?: number;
-  ammonia_nitrogen?: number;
-  nitrite?: number;
-  transparency?: number;
+  sampled_at?: string;
+  device_id?: string;
+  water_temperature?: number | null;
+  ph_value?: number | null;
+  dissolved_oxygen?: number | null;
+  ammonia_nitrogen?: number | null;
+  nitrite?: number | null;
+  transparency?: number | null;
   notes?: string;
+  status: WaterQualityStatus;
+  invalid_field_reasons?: Record<string, string> | null;
+  review_conclusion?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  merged_into_id?: number | null;
+  revisions?: WaterQualityRevision[];
+  merged_from_duplicate?: boolean;
   created_at: string;
+  updated_at?: string;
+}
+
+export interface WaterQualityTrendPoint {
+  record_id: number;
+  sampled_at: string;
+  record_date: string;
+  record_time?: string;
+  device_id?: string;
+  water_temperature?: number | null;
+  ph_value?: number | null;
+  dissolved_oxygen?: number | null;
+  ammonia_nitrogen?: number | null;
+  nitrite?: number | null;
+  transparency?: number | null;
+}
+
+export interface WaterQualityTrend {
+  batch_id?: number | null;
+  points: WaterQualityTrendPoint[];
+  quarantined_count: number;
+  rejected_count: number;
+  merged_count: number;
+}
+
+export interface WaterQualityReviewPayload {
+  action: 'confirm_valid' | 'confirm_invalid';
+  conclusion: string;
+  reviewed_by?: string;
+  corrections?: Partial<Record<WaterQualityMetricKey, number | null>>;
+}
+
+export type WaterQualityMetricKey =
+  | 'water_temperature'
+  | 'ph_value'
+  | 'dissolved_oxygen'
+  | 'ammonia_nitrogen'
+  | 'nitrite'
+  | 'transparency';
+
+export interface FieldErrors {
+  [field: string]: string | undefined;
 }
 
 export interface MedicationRecord {
